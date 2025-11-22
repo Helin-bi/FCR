@@ -1360,5 +1360,221 @@
             doc.save(`Field_Report_${data.fileNo || 'draft'}_${Date.now()}.pdf`);
         }
     </script>
+
+<script>
+// IndexedDB wrapper for Field Reports
+const DB_NAME = 'FieldReportsDB';
+const STORE_NAME = 'reports';
+let dbInstance = null;
+
+function openDB() {
+    return new Promise((resolve, reject) => {
+        if (dbInstance) return resolve(dbInstance);
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = function(e) {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            }
+        };
+        req.onsuccess = function(e) {
+            dbInstance = e.target.result;
+            resolve(dbInstance);
+        };
+        req.onerror = function(e) {
+            reject(e.target.error);
+        };
+    });
+}
+
+async function dbPut(report) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.put(report);
+        tx.oncomplete = () => resolve();
+        tx.onerror = (e) => reject(e.target.error);
+    });
+}
+
+async function dbGetAll() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = (e) => reject(e.target.error);
+    });
+}
+
+async function dbGetById(id) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(id);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = (e) => reject(e.target.error);
+    });
+}
+
+async function dbDelete(id) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.delete(id);
+        tx.oncomplete = () => resolve();
+        tx.onerror = (e) => reject(e.target.error);
+    });
+}
+
+async function dbGetByFileNo(fileNo) {
+    const all = await dbGetAll();
+    return all.find(r => (r.data && String(r.data.fileNo || '') === String(fileNo)));
+}
+
+// Override storage functions to use IndexedDB
+async function getAllReports() {
+    const list = await dbGetAll();
+    // sort by date descending
+    return list.sort((a,b) => b.date - a.date);
+}
+
+async function saveReport(report) {
+    if (!report.id) report.id = 'report_' + Date.now();
+    report.date = report.date || Date.now();
+    await dbPut(report);
+}
+
+async function deleteReport(id) {
+    if (!confirm('Are you sure you want to delete this report?')) return;
+    await dbDelete(id);
+    await loadReportsList();
+}
+
+// Override loadReportsList to render from DB and add search UI
+async function loadReportsList() {
+    const reports = await getAllReports();
+    const reportList = document.getElementById('reportList');
+    // ensure search bar exists
+    ensureSearchBar();
+    if (!reports || reports.length === 0) {
+        reportList.innerHTML = '<div class="no-reports"><h2>No reports saved yet</h2><p>Click \"New Report\" to get started</p></div>';
+        return;
+    }
+    reportList.innerHTML = reports.map(report => `
+        <div class="report-item">
+            <div class="report-info">
+                <h3>File No: ${report.data.fileNo || 'N/A'}</h3>
+                <p>Loan Amount: ${report.data.loanAmount || 'N/A'} | Date: ${new Date(report.date).toLocaleString()}</p>
+            </div>
+            <div class="report-actions">
+                <button class="btn btn-primary btn-small" onclick="editReport('${report.id}')">Edit</button>
+                <button class="btn btn-primary btn-small" onclick="downloadReport('${report.id}')">Download PDF</button>
+                <button class="btn btn-danger btn-small" onclick="deleteReport('${report.id}')">Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Ensure there's a search bar in home page
+function ensureSearchBar() {
+    const container = document.getElementById('homePage');
+    if (document.getElementById('searchBar')) return;
+    const div = document.createElement('div');
+    div.style.marginTop = '16px';
+    div.innerHTML = `
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+            <input id="searchInput" type="text" placeholder="Search by File No" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:6px;" />
+            <button class="btn btn-primary" id="searchBtn">Search</button>
+            <button class="btn btn-secondary" id="refreshBtn">Refresh</button>
+        </div>
+    `;
+    container.appendChild(div);
+    document.getElementById('searchBtn').addEventListener('click', async () => {
+        const v = document.getElementById('searchInput').value.trim();
+        if (!v) { loadReportsList(); return; }
+        const found = await dbGetByFileNo(v);
+        const reportList = document.getElementById('reportList');
+        if (!found) {
+            reportList.innerHTML = '<div class="no-reports"><h2>No matching report found</h2></div>';
+            return;
+        }
+        reportList.innerHTML = `
+            <div class="report-item">
+                <div class="report-info">
+                    <h3>File No: ${found.data.fileNo || 'N/A'}</h3>
+                    <p>Loan Amount: ${found.data.loanAmount || 'N/A'} | Date: ${new Date(found.date).toLocaleString()}</p>
+                </div>
+                <div class="report-actions">
+                    <button class="btn btn-primary btn-small" onclick="editReport('${found.id}')">Edit</button>
+                    <button class="btn btn-primary btn-small" onclick="downloadReport('${found.id}')">Download PDF</button>
+                    <button class="btn btn-danger btn-small" onclick="deleteReport('${found.id}')">Delete</button>
+                </div>
+            </div>
+        `;
+    });
+    document.getElementById('refreshBtn').addEventListener('click', loadReportsList);
+}
+
+// Save current data into DB (override)
+async function saveCurrentData() {
+    const data = collectFormData();
+    const report = {
+        id: currentReportId || ('report_' + Date.now()),
+        date: Date.now(),
+        data: data
+    };
+    await saveReport(report);
+    currentReportId = report.id;
+    showAutoSaveIndicator();
+    await loadReportsList();
+}
+
+// Edit existing report: load from DB
+async function editReport(id) {
+    const report = await dbGetById(id);
+    if (!report) return;
+    currentReportId = id;
+    loadReportData(report.data);
+    showFormPages();
+    showPage(1);
+}
+
+// Download PDF for a saved report by loading it into form then generating PDF
+async function downloadReport(id) {
+    const report = await dbGetById(id);
+    if (!report) return alert('Report not found');
+    // load data into form temporarily, generate PDF, then reload current form state
+    const currentState = collectFormData();
+    const wasCurrentId = currentReportId;
+    loadReportData(report.data);
+    // set currentReportId to id so filename includes fileNo
+    currentReportId = id;
+    try {
+        generatePDF(); // uses form values to create PDF download
+    } catch(e) {
+        alert('Error generating PDF: ' + e.message);
+    }
+    // restore previous state
+    loadReportData(currentState);
+    currentReportId = wasCurrentId;
+}
+
+// Initialize DB on load and then load reports list
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        await openDB();
+        // small delay to let original app init run
+        setTimeout(() => { loadReportsList(); }, 300);
+    } catch(e) {
+        console.error('DB init error', e);
+    }
+});
+</script>
+
 </body>
 </html>
