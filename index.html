@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -511,11 +512,11 @@
                     </div>
                     <div class="form-group">
                         <label>Latitude</label>
-                        <input type="text" id="lat" placeholder="Auto-filled via GPS" readonly>
+                        <input type="text" id="lat" placeholder="Auto-filled via GPS">
                     </div>
                     <div class="form-group">
                         <label>Longitude</label>
-                        <input type="text" id="lng" placeholder="Auto-filled via GPS" readonly>
+                        <input type="text" id="lng" placeholder="Auto-filled via GPS">
                     </div>
                     <div class="form-group">
                         <label>Site Remarks</label>
@@ -881,10 +882,38 @@
         function captureGPS() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
-                    position => {
-                        document.getElementById('lat').value = position.coords.latitude.toFixed(6);
-                        document.getElementById('lng').value = position.coords.longitude.toFixed(6);
-                        alert('GPS location captured successfully!');
+                    async position => {
+                        const lat = position.coords.latitude.toFixed(6);
+                        const lng = position.coords.longitude.toFixed(6);
+                        // Fill lat/lng (editable)
+                        document.getElementById('lat').value = lat;
+                        document.getElementById('lng').value = lng;
+
+                        // Reverse geocode using Nominatim (OpenStreetMap)
+                        try {
+                            const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1`;
+                            const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                            if (!resp.ok) throw new Error('Geocoding API error: ' + resp.status);
+                            const data = await resp.json();
+                            const addr = data.address || {};
+
+                            // Map address fields to your form fields (postOffice intentionally left blank)
+                            const state = addr.state || addr.region || addr.state_district || '';
+                            const district = addr.county || addr.region || addr.suburb || '';
+                            const village = addr.village || addr.town || addr.hamlet || addr.suburb || '';
+                            const postcode = addr.postcode || '';
+
+                            if (state) document.getElementById('state').value = state;
+                            if (district) document.getElementById('district').value = district;
+                            if (village) document.getElementById('villageName').value = village;
+                            // Leave postOffice blank as requested
+                            if (postcode) document.getElementById('pincode').value = postcode;
+
+                            alert('GPS location captured and address fields auto-filled. You can edit them if needed.');
+                        } catch (err) {
+                            console.error(err);
+                            alert('GPS captured but reverse-geocoding failed: ' + err.message + '. You can edit fields manually.');
+                        }
                     },
                     error => {
                         alert('Error capturing GPS: ' + error.message);
@@ -1175,8 +1204,11 @@
                 doc.setFont(undefined, 'bold');
                 doc.text(label + ':', margin, yPos);
                 doc.setFont(undefined, 'normal');
-                doc.text(value || '', margin + 50, yPos);
-                yPos += 6;
+                const textValue = value || '';
+                const maxFieldWidth = contentWidth - 60; // leave space for label
+                const lines = doc.splitTextToSize(textValue, maxFieldWidth);
+                doc.text(lines, margin + 50, yPos);
+                yPos += Math.max(6, lines.length * 5);
             });
 
             // Page 2: Crops, Assets & Photos
@@ -1459,8 +1491,6 @@ async function deleteReport(id) {
 async function loadReportsList() {
     const reports = await getAllReports();
     const reportList = document.getElementById('reportList');
-    // ensure search bar exists
-    ensureSearchBar();
     if (!reports || reports.length === 0) {
         reportList.innerHTML = '<div class="no-reports"><h2>No reports saved yet</h2><p>Click \"New Report\" to get started</p></div>';
         return;
@@ -1481,23 +1511,7 @@ async function loadReportsList() {
 }
 
 // Ensure there's a search bar in home page
-function ensureSearchBar() {
-    const container = document.getElementById('homePage');
-    if (document.getElementById('searchBar')) return;
-    const div = document.createElement('div');
-    div.style.marginTop = '16px';
-    div.innerHTML = `
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
-            <input id="searchInput" type="text" placeholder="Search by File No" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:6px;" />
-            <button class="btn btn-primary" id="searchBtn">Search</button>
-            <button class="btn btn-secondary" id="refreshBtn">Refresh</button>
-        </div>
-    `;
-    container.appendChild(div);
-    document.getElementById('searchBtn').addEventListener('click', async () => {
-        const v = document.getElementById('searchInput').value.trim();
-        if (!v) { loadReportsList(); return; }
-        const found = await dbGetByFileNo(v);
+const found = await dbGetByFileNo(v);
         const reportList = document.getElementById('reportList');
         if (!found) {
             reportList.innerHTML = '<div class="no-reports"><h2>No matching report found</h2></div>';
