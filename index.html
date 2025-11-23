@@ -1434,7 +1434,7 @@ async function deletePhoto(index) {
                 ['Rainfall', data.rainfall],
                 ['Village Topography', data.villageTopography],
                 ['Ground Water Level', data.groundWaterLevel],
-                ['Proximity to River', data.proximityToRiver],
+                ['Proximity to River', (data.proximityToRiver ? data.proximityToRiver + ' m' : '')],
                 ['Threat To Land', data.threatToLand],
                 ['Latitude', data.lat],
                 ['Longitude', data.lng],
@@ -1870,6 +1870,128 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
     </script>
+
+
+<script>
+// --- UI Enhancements for Specific Questions ---
+
+document.addEventListener('DOMContentLoaded', function() {
+
+    // Helper to wrap box
+    function wrapBox(element) {
+        const box = document.createElement('div');
+        box.style.border = "2px solid #cbd5e1";
+        box.style.padding = "12px";
+        box.style.borderRadius = "8px";
+        box.style.marginTop = "8px";
+        box.style.marginBottom = "16px";
+        element.parentNode.insertBefore(box, element);
+        box.appendChild(element);
+        return box;
+    }
+
+    // ------- 1. Distance Slider (0–30 km) -------
+    const dist = document.getElementById('distance');
+    if (dist) {
+        wrapBox(dist.parentElement);
+        const slider = document.createElement('input');
+        slider.type = "range";
+        slider.min = 0;
+        slider.max = 30;
+        slider.value = dist.value || 0;
+        slider.style.width = "100%";
+
+        const label = document.createElement('div');
+        label.style.marginTop = "6px";
+        label.style.fontWeight = "600";
+        label.innerText = slider.value + " km";
+
+        slider.oninput = function(){
+            label.innerText = this.value + " km";
+            dist.value = this.value;
+        };
+
+        dist.style.display = "none"; 
+        dist.parentElement.appendChild(slider);
+        dist.parentElement.appendChild(label);
+    }
+
+    // ------- 2. Proximity to River Slider (0–5 km in 0.5 steps, show meters) -------
+    const prox = document.getElementById('proximityToRiver');
+    if (prox) {
+        wrapBox(prox.parentElement);
+        const slider2 = document.createElement('input');
+        slider2.type = "range";
+        slider2.min = 0;
+        slider2.max = 5;
+        slider2.step = 0.5;
+        slider2.value = prox.value || 0;
+        slider2.style.width = "100%";
+
+        const label2 = document.createElement('div');
+        label2.style.marginTop = "6px";
+        label2.style.fontWeight = "600";
+        label2.innerText = (slider2.value*1000) + " meters";
+
+        slider2.oninput = function(){
+            label2.innerText = (this.value*1000) + " meters";
+            prox.value = this.value*1000; 
+        };
+
+        prox.style.display = "none";
+        prox.parentElement.appendChild(slider2);
+        prox.parentElement.appendChild(label2);
+    }
+
+    // Radio generator
+    function addRadios(inputId, options){
+        const inp = document.getElementById(inputId);
+        if (!inp) return;
+
+        wrapBox(inp.parentElement);
+        inp.style.display = "none";
+
+        const box = document.createElement('div');
+        box.style.marginTop = "10px";
+
+        options.forEach(opt => {
+            const lbl = document.createElement('label');
+            lbl.style.display = "inline-block"; lbl.style.marginRight="20px";
+            lbl.style.marginBottom = "6px";
+
+            const r = document.createElement('input');
+            r.type = "radio";
+            r.name = inputId + "_radio";
+            r.value = opt;
+            r.style.marginRight = "6px";
+
+            if (inp.value === opt) r.checked = true;
+
+            r.onchange = function(){
+                inp.value = this.value;
+            };
+
+            lbl.appendChild(r);
+            lbl.appendChild(document.createTextNode(opt));
+            box.appendChild(lbl);
+        });
+
+        inp.parentElement.appendChild(box);
+    }
+
+    // Soil type
+    addRadios("typeOfSoil", ["Black", "Sandy"]);
+
+    // Soil Conditions
+    addRadios("soilConditions", ["Fertile", "Infertile"]);
+
+    // Rainfall
+    addRadios("rainfall", ["Low", "Average", "Medium"]);
+
+    // Village Topography
+    addRadios("villageTopography", ["Hilly", "Plain"]);
+});
+</script>
 
 </body>
 </html>
