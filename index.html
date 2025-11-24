@@ -882,6 +882,7 @@ async function photoGetMany(photoIds) {
 
         function loadReportData(data) {
             // Load basic info
+            if(data.reportDate){ document.getElementById('reportDate').value = data.reportDate; }
             Object.keys(data).forEach(key => {
                 const field = document.getElementById(key);
                 if (field && typeof data[key] !== 'object') {
@@ -1019,6 +1020,7 @@ async function photoGetMany(photoIds) {
 
         function collectFormData() {
             const data = {
+                reportDate: document.getElementById('reportDate').value,
                 fileNo: document.getElementById('fileNo').value,
                 loanAmount: document.getElementById('loanAmount').value,
                 loanProduct: document.getElementById('loanProduct').value,
@@ -2003,7 +2005,7 @@ document.addEventListener('DOMContentLoaded', function() {
     addRadios("soilConditions", ["Fertile", "Infertile"]);
 
     // Rainfall
-    addRadios("rainfall", ["Low", "Average", "Medium"]);
+    addRadios("rainfall", ["Low", "Average", "High"]);
 
     // Village Topography
     addRadios("villageTopography", ["Hilly", "Plain"]);
