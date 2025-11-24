@@ -414,7 +414,7 @@
 
         <!-- FORM PAGES -->
         <div id="formPages" class="hidden">
-        <div style="text-align:center; margin-top:10px;">
+        <div id="dateContainer" style="text-align:center; margin-top:10px;">
             <label style="font-weight:600;">Report Date: </label>
             <input type="date" id="reportDate" style="padding:6px; border:1px solid #ccc; border-radius:6px;">
         </div>
@@ -952,6 +952,9 @@ async function photoGetMany(photoIds) {
         }
 
         function showPage(pageNum) {
+            const dc=document.getElementById("dateContainer");
+            if(pageNum>1){ dc.style.display="none"; } else { dc.style.display="block"; }
+
             currentPage = pageNum;
             
             // Hide all pages
@@ -2000,7 +2003,7 @@ document.addEventListener('DOMContentLoaded', function() {
     addRadios("soilConditions", ["Fertile", "Infertile"]);
 
     // Rainfall
-    addRadios("rainfall", ["Low", "Average", "High"]);
+    addRadios("rainfall", ["Low", "Average", "Medium"]);
 
     // Village Topography
     addRadios("villageTopography", ["Hilly", "Plain"]);
