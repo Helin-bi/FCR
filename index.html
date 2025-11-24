@@ -403,7 +403,9 @@
 
     <div class="auto-save-indicator" id="autoSaveIndicator">Saving...</div>
 
-    <div class="container">
+    
+    
+<div class="container">
         <!-- HOME PAGE -->
         <div id="homePage">
             <button class="btn btn-primary btn-block" onclick="startNewReport()">📝 New Report</button>
@@ -412,6 +414,11 @@
 
         <!-- FORM PAGES -->
         <div id="formPages" class="hidden">
+        <div style="text-align:center; margin-top:10px;">
+            <label style="font-weight:600;">Report Date: </label>
+            <input type="date" id="reportDate" style="padding:6px; border:1px solid #ccc; border-radius:6px;">
+        </div>
+    
             <div class="page-indicator" id="pageIndicator">Page 1 of 3</div>
 
             <!-- PAGE 1: Basic Information -->
@@ -1381,7 +1388,14 @@ async function deletePhoto(index) {
             // Date and File No
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
-            doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, yPos);
+            doc.text(`Date: ${document.getElementById('reportDate').value 
+        ? document.getElementById('reportDate').value.split('-').reverse().join('/') 
+        : (function(){ 
+                const d=new Date();
+                return d.getDate().toString().padStart(2,'0') + '/' +
+                       (d.getMonth()+1).toString().padStart(2,'0') + '/' +
+                       d.getFullYear();
+          })()}`, margin, yPos);
             doc.text(`File No: ${data.fileNo}`, pageWidth - margin, yPos, { align: 'right' });
             yPos += 10;
 
@@ -1986,7 +2000,7 @@ document.addEventListener('DOMContentLoaded', function() {
     addRadios("soilConditions", ["Fertile", "Infertile"]);
 
     // Rainfall
-    addRadios("rainfall", ["Low", "Average", "High"]);
+    addRadios("rainfall", ["Low", "Average", "Medium"]);
 
     // Village Topography
     addRadios("villageTopography", ["Hilly", "Plain"]);
